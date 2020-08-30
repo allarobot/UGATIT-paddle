@@ -49,6 +49,7 @@ class ResnetGenerator(fluid.dygraph.Layer):
 
         # Upsampling Bottleneck
         for i in range(n_blocks):
+            #setattr(self, 'UpBlock1_' + str(i+1), ResnetAdaILNBlock(ngf * mult, None))
             setattr(self, 'UpBlock1_' + str(i+1), ResnetAdaILNBlock(ngf * mult, None))
 
         # Upsampling
@@ -172,60 +173,121 @@ class ResnetAdaILNBlock(fluid.dygraph.Layer):
         return instance + out
 
 class adaILN(fluid.dygraph.Layer):
-    def __init__(self, num_features, eps=1e-5):
+
+    def __init__(self, in_channels, eps=1e-5):
         super(adaILN, self).__init__()
-        t = fluid.Tensor()
         self.eps = eps
-        # self.rho = Layer.parameters(t.set(1, num_features, 1, 1))
-        self.rho = fluid.layers.create_parameter(shape=[1, num_features, 1, 1], dtype='float32', default_initializer=fluid.initializer.ConstantInitializer(value=0.9))
-        # self.rho = fill_constant(shape=self.rho.shape(), dtype='float32', value=0.9)
-        # self.rho.data.fill_(0.9)
+        self.rho =self.create_parameter((1, in_channels, 1, 1), dtype='float32', is_bias=True,
+        default_initializer=fluid.initializer.ConstantInitializer(0.9))
+
+    def var(self, input, dim):
+        mean = fluid.layers.reduce_mean(input, dim, keep_dim=True)
+        tmp = fluid.layers.reduce_mean((input - mean)**2, dim, keep_dim=True)
+        return tmp
 
     def forward(self, input, gamma, beta):
-        in_mean, in_var = np.mean(input, axis=[2, 3], keepdims=True), np.var(input, axis=[2, 3], keepdims=True)
-        out_in = (input - in_mean) / np.sqrt(in_var + self.eps)
-        ln_mean, ln_var = np.mean(input, axis=[1, 2, 3], keepdims=True), np.var(input, axis=[1, 2, 3], keepdims=True)
-        out_ln = (input - ln_mean) / np.sqrt(ln_var + self.eps)
-        out = self.rho.expand(input.shape[0], -1, -1, -1) * out_in + (1 - self.rho.expand(input.shape[0], -1, -1, -1)) * out_ln
-
-        gamma = unsqueeze(gamma, axes=2)
-        gamma = unsqueeze(gamma, axes=3)
-        beta = unsqueeze(beta, axes=2)
-        beta = unsqueeze(beta, axes=3)
-
-        out = out * gamma + beta
-
+        in_mean, in_var = fluid.layers.reduce_mean(input, dim=[2,3], keep_dim=True), self.var(input, dim =[2,3])
+        ln_mean, ln_var = fluid.layers.reduce_mean(input, dim=[1,2,3], keep_dim=True), self.var(input, dim=[1,2,3])
+        out_in = (input - in_mean) / fluid.layers.sqrt(in_var + self.eps)
+        out_ln = (input - ln_mean) / fluid.layers.sqrt(ln_var + self.eps)
+        # ex_rho = fluid.layers.expand(self.rho, expand_times = [input.shape[0], 1, 1, 1])
+        # print("rho",fluid.layers.reduce_mean(self.rho).numpy())
+        out = self.rho * out_in + (1 - self.rho)*out_ln
+        out=out*fluid.layers.unsqueeze(fluid.layers.unsqueeze(gamma,2),3)+fluid.layers.unsqueeze(fluid.layers.unsqueeze(beta,2),3)
+        # out = out * gamma + beta
         return out
 
 class ILN(fluid.dygraph.Layer):
-    def __init__(self, num_features, eps=1e-5):
-        super(ILN, self).__init__()
-        t = fluid.Tensor()
-        self.eps = eps
-        # self.rho = Layer.parameters(t.set(1, num_features, 1, 1))
-        self.rho = fluid.layers.create_parameter(shape=[1, num_features, 1, 1], dtype='float32', default_initializer=fluid.initializer.ConstantInitializer(value=0.0))
-        # self.gamma = Layer.parameters(t.set(1, num_features, 1, 1))
-        self.gamma = fluid.layers.create_parameter(shape=[1, num_features, 1, 1], dtype='float32', default_initializer=fluid.initializer.ConstantInitializer(value=1.0))
-        # self.beta = Layer.parameters(t.set(1, num_features, 1, 1))
-        self.beta = fluid.layers.create_parameter(shape=[1, num_features, 1, 1], dtype='float32', default_initializer=fluid.initializer.ConstantInitializer(value=0.0))
 
-        # self.rho = fill_constant(shape=self.rho.shape(), dtype='float32', value=0.0)
-        # self.gamma = fill_constant(shape=self.gamma.shape(), dtype='float32', value=1.0)
-        # self.beta = fill_constant(shape=self.beta.shape(), dtype='float32', value=0.0)
-        # self.rho.data.fill_(0.0)
-        # self.gamma.data.fill_(1.0)
-        # self.beta.data.fill_(0.0)
+    def __init__(self, in_channels, eps=1e-5):
+        super(ILN, self).__init__()
+        self.eps = eps
+        self.rho = self.create_parameter((1, in_channels, 1, 1), dtype='float32', is_bias=True,
+        default_initializer=fluid.initializer.ConstantInitializer(0.0))
+        self.gamma = self.create_parameter((1, in_channels, 1, 1), dtype='float32', is_bias=True,
+        default_initializer=fluid.initializer.ConstantInitializer(1.0))
+        self.beta = self.create_parameter((1, in_channels, 1, 1), dtype='float32', is_bias=True,
+        default_initializer=fluid.initializer.ConstantInitializer(0.0))
+        
+    def var(self, input, dim):
+        mean = fluid.layers.reduce_mean(input, dim, keep_dim=True)
+        tmp = fluid.layers.reduce_mean((input - mean)**2, dim, keep_dim=True)
+        return tmp
 
     def forward(self, input):
-        in_mean, in_var = np.mean(input, axis=[2, 3], keepdims=True), np.var(input, axis=[2, 3], keepdims=True)
-        out_in = (input - in_mean) / np.sqrt(in_var + self.eps)
-        ln_mean, ln_var = np.mean(input, axis=[1, 2, 3], keepdims=True), np.var(input, axis=[1, 2, 3], keepdims=True)
-        out_ln = (input - ln_mean) / np.sqrt(ln_var + self.eps)
-        out = self.rho.expand(input.shape[0], -1, -1, -1) * out_in + (1 - self.rho.expand(input.shape[0], -1, -1, -1)) * out_ln
-
-        out = out * self.gamma.expand(input.shape[0], -1, -1, -1) + self.beta.expand(input.shape[0], -1, -1, -1)
-
+        in_mean, in_var = fluid.layers.reduce_mean(input, dim=[2,3], keep_dim=True), self.var(input, dim =[2,3])
+        ln_mean, ln_var = fluid.layers.reduce_mean(input, dim=[1,2,3], keep_dim=True), self.var(input, dim=[1,2,3])
+        out_in = (input - in_mean) / fluid.layers.sqrt(in_var + self.eps)
+        out_ln = (input - ln_mean) / fluid.layers.sqrt(ln_var + self.eps)
+        # ex_rho = fluid.layers.expand(self.rho, expand_times = [input.shape[0], 1, 1, 1])
+        # ex_gamma = fluid.layers.expand(self.gamma, expand_times = [input.shape[0], 1, 1, 1])
+        # ex_beta = fluid.layers.expand(self.beta, expand_times = [input.shape[0], 1, 1, 1])
+        # print("rho",fluid.layers.reduce_mean(self.rho).numpy())
+        # print("gamma",fluid.layers.reduce_mean(self.gamma).numpy())
+        # print("beta",fluid.layers.reduce_mean(self.beta).numpy())
+        # out = ex_rho * out_in + (1 - ex_rho) * out_ln
+        out = self.rho * out_in + (1 - self.rho)*out_ln
+        # out=out*fluid.layers.unsqueeze(fluid.layers.unsqueeze(self.gamma,2),3)+fluid.layers.unsqueeze(fluid.layers.unsqueeze(self.beta,2),3)
+        out = out * self.gamma + self.beta
         return out
+        
+# class adaILN(fluid.dygraph.Layer):
+#     def __init__(self, num_features, eps=1e-5):
+#         super(adaILN, self).__init__()
+#         t = fluid.Tensor()
+#         self.eps = eps
+#         # self.rho = Layer.parameters(t.set(1, num_features, 1, 1))
+#         self.rho = fluid.layers.create_parameter(shape=[1, num_features, 1, 1], dtype='float32', default_initializer=fluid.initializer.ConstantInitializer(value=0.9))
+#         # self.rho = fill_constant(shape=self.rho.shape(), dtype='float32', value=0.9)
+#         # self.rho.data.fill_(0.9)
+
+#     def forward(self, input, gamma, beta):
+#         input = input.
+#         in_mean, in_var = np.mean(input, axis=[2, 3], keepdims=True), np.var(input, axis=[2, 3], keepdims=True)
+#         #in_mean, = fluid.layers.reduce_mean(input, dim=None, keep_dim=True, name=None), fluid.layers.(input, dim=None, keep_dim=True, name=None), 
+#         out_in = (input - in_mean) / np.sqrt(in_var + self.eps)
+#         ln_mean, ln_var = np.mean(input, axis=[1, 2, 3], keepdims=True), np.var(input, axis=[1, 2, 3], keepdims=True)
+#         out_ln = (input - ln_mean) / np.sqrt(ln_var + self.eps)
+#         out = self.rho.expand(input.shape[0], -1, -1, -1) * out_in + (1 - self.rho.expand(input.shape[0], -1, -1, -1)) * out_ln
+
+#         gamma = unsqueeze(gamma, axes=2)
+#         gamma = unsqueeze(gamma, axes=3)
+#         beta = unsqueeze(beta, axes=2)
+#         beta = unsqueeze(beta, axes=3)
+
+#         out = out * gamma + beta
+
+#         return out
+
+# class ILN(fluid.dygraph.Layer):
+#     def __init__(self, num_features, eps=1e-5):
+#         super(ILN, self).__init__()
+#         t = fluid.Tensor()
+#         self.eps = eps
+#         # self.rho = Layer.parameters(t.set(1, num_features, 1, 1))
+#         self.rho = fluid.layers.create_parameter(shape=[1, num_features, 1, 1], dtype='float32', default_initializer=fluid.initializer.ConstantInitializer(value=0.0))
+#         # self.gamma = Layer.parameters(t.set(1, num_features, 1, 1))
+#         self.gamma = fluid.layers.create_parameter(shape=[1, num_features, 1, 1], dtype='float32', default_initializer=fluid.initializer.ConstantInitializer(value=1.0))
+#         # self.beta = Layer.parameters(t.set(1, num_features, 1, 1))
+#         self.beta = fluid.layers.create_parameter(shape=[1, num_features, 1, 1], dtype='float32', default_initializer=fluid.initializer.ConstantInitializer(value=0.0))
+
+#         # self.rho = fill_constant(shape=self.rho.shape(), dtype='float32', value=0.0)
+#         # self.gamma = fill_constant(shape=self.gamma.shape(), dtype='float32', value=1.0)
+#         # self.beta = fill_constant(shape=self.beta.shape(), dtype='float32', value=0.0)
+#         # self.rho.data.fill_(0.0)
+#         # self.gamma.data.fill_(1.0)
+#         # self.beta.data.fill_(0.0)
+
+#     def forward(self, input):
+#         in_mean, in_var = np.mean(input, axis=[2, 3], keepdims=True), np.var(input, axis=[2, 3], keepdims=True)
+#         out_in = (input - in_mean) / np.sqrt(in_var + self.eps)
+#         ln_mean, ln_var = np.mean(input, axis=[1, 2, 3], keepdims=True), np.var(input, axis=[1, 2, 3], keepdims=True)
+#         out_ln = (input - ln_mean) / np.sqrt(ln_var + self.eps)
+#         out = self.rho.expand(input.shape[0], -1, -1, -1) * out_in + (1 - self.rho.expand(input.shape[0], -1, -1, -1)) * out_ln
+
+#         out = out * self.gamma.expand(input.shape[0], -1, -1, -1) + self.beta.expand(input.shape[0], -1, -1, -1)
+
+#         return out
 
 class Discriminator(fluid.dygraph.Layer):
     def __init__(self, input_nc, ndf=64, n_layers=5):
