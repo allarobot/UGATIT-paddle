@@ -4,7 +4,7 @@
 
 import paddle.fluid as fluid
 from paddle.fluid.layer_helper import LayerHelper
-from paddle.fluid.dygraph import Conv2D, Pool2D, BatchNorm, Linear,InstanceNorm,PRelu,SpectralNorm
+from paddle.fluid.dygraph import Conv2D, Pool2D, BatchNorm, Linear,PRelu,SpectralNorm, LayerNorm, InstanceNorm
 from paddle.fluid.dygraph import Sequential
 import paddle.fluid.dygraph.nn as nn
 #from paddle.fluid.Tensor import tensor
@@ -283,153 +283,6 @@ class ILN(fluid.dygraph.Layer):
         out = out * self.gamma + self.beta
         return out
 
-# class adaILN(fluid.dygraph.Layer):
-#     def __init__(self, num_features, eps=1e-5):
-#         super(adaILN, self).__init__()
-#         self.eps = eps
-#         # self.rho = Parameter(torch.Tensor(1, num_features, 1, 1))
-#         # self.rho.data.fill_(0.9)
-#         self.rho = self.create_parameter(shape=(1, num_features, 1, 1), dtype='float32', default_initializer=fluid.initializer.Constant(0.9))
-
-#     def forward(self, input, gamma, beta):
-#         # in_mean, in_var = torch.mean(input, dim=[2, 3], keepdim=True), torch.var(input, dim=[2, 3], keepdim=True)
-#         # out_in = (input - in_mean) / torch.sqrt(in_var + self.eps)
-#         # ln_mean, ln_var = torch.mean(input, dim=[1, 2, 3], keepdim=True), torch.var(input, dim=[1, 2, 3], keepdim=True)
-#         # out_ln = (input - ln_mean) / torch.sqrt(ln_var + self.eps)
-#         # out = self.rho.expand(input.shape[0], -1, -1, -1) * out_in + (1-self.rho.expand(input.shape[0], -1, -1, -1)) * out_ln
-#         # out = out * gamma.unsqueeze(2).unsqueeze(3) + beta.unsqueeze(2).unsqueeze(3)
-#         in_mean = mean(input, dim=[2, 3], keep_dim=True)
-#         in_var = var(input, dim=[2, 3], keep_dim=True)
-#         out_in = (input - in_mean) / layers.sqrt(in_var + self.eps)
-#         ln_mean = mean(input, dim=[1, 2, 3], keep_dim=True)
-#         ln_var = var(input, dim=[1, 2, 3], keep_dim=True)
-#         out_ln = (input - ln_mean) / layers.sqrt(ln_var + self.eps)
-#         # rho_expand = layers.expand(self.rho, [input.shape[0], 1, 1, 1])
-#         # out = rho_expand * out_in + (1-rho_expand) * out_ln
-#         out = self.rho * out_in + (1 - self.rho) * out_ln
-#         out = out * layers.unsqueeze(layers.unsqueeze(gamma, 2), 3) + layers.unsqueeze(layers.unsqueeze(beta, 2), 3)
-#         return out
-
-# def var(input, dim=None, keep_dim=False, unbiased=True, name=None):
-#     rank = len(input.shape)
-#     dims = dim if dim != None and dim != [] else range(rank)
-#     dims = [e if e >= 0 else e + rank for e in dims]
-#     inp_shape = input.shape
-#     mean = layers.reduce_mean(input, dim=dim, keep_dim=True, name=name)
-#     tmp = layers.reduce_mean((input - mean)**2, dim=dim, keep_dim=keep_dim, name=name)
-#     if unbiased:
-#         n = 1
-#         for i in dims:
-#             n *= inp_shape[i]
-#         factor = n / (n - 1.0) if n > 1.0 else 0.0
-#         tmp *= factor
-#     return tmp
-
-# class adaILN(fluid.dygraph.Layer):
-#     def __init__(self, num_features, eps=1e-5):
-#         super(adaILN, self).__init__()
-#         self.eps = eps
-#         # self.rho = fluid.layers.create_parameter(shape=[1, num_features, 1, 1], dtype='float32',is_bias=True,default_initializer=fluid.initializer.ConstantInitializer(0.9))
-#         # self.rho = self.create_parameter(shape=[1, num_features, 1, 1], dtype='float32',is_bias=True,default_initializer=fluid.initializer.ConstantInitializer(0.9))
-#         self.rho = fluid.layers.fill_constant(shape=[1, num_features, 1, 1], value=0.9, dtype='float32')
-#         #self.rho = Parameter(fluid.Tensor(1, num_features, 1, 1))
-#         #self.rho = fluid.Tensor()
-#         #self.rho.set(np.ndarray([1, num_features, 1, 1]), fluid.CPUPlace())        
-#         #self.rho = fluid.Tensor(1, num_features, 1, 1)
-#         #self.rho=np.ndarray([1, num_features, 1, 1])
-#         #self.rho.data.fill_(0.9)
-
-#     def forward(self, input, gamma, beta):
-#         #torch.Size([1, 256, 64, 64])
-#         ninput=input.numpy()
-#         #self.rho=self.rho.numpy()
-#         in_mean=np.mean(ninput, axis=(2, 3), keepdims=True)
-#         in_var=np.var(ninput, axis=(2, 3), keepdims=True)
-#         out_in = (ninput - in_mean) / np.sqrt(in_var + self.eps)
-#         ln_mean, ln_var = np.mean(ninput, axis=(1, 2, 3), keepdims=True), np.var(ninput, axis=(1, 2, 3), keepdims=True)
-#         out_ln = (ninput - ln_mean) / np.sqrt(ln_var + self.eps)
-#         out_in = fluid.dygraph.base.to_variable(out_in)
-#         out_ln = fluid.dygraph.base.to_variable(out_ln)
-#         ninput = fluid.dygraph.base.to_variable(ninput)
-#         #out = fluid.dygraph.base.to_variable(out)
-#         out = self.rho * out_in + (1-self.rho) * out_ln
-#         # print(self.rho)
-#         #t = fluid.Tensor()
-#         #t.set(out, fluid.CPUPlace())   
-#         gamma = fluid.layers.unsqueeze(input=gamma, axes=[2])
-#         gamma = fluid.layers.unsqueeze(input=gamma, axes=[3])   
-#         beta = fluid.layers.unsqueeze(input=beta, axes=[2])
-#         beta = fluid.layers.unsqueeze(input=beta, axes=[3])  
-#         out = out *gamma+beta
-#         #in_mean, in_var = fluid.layers.reduce_mean(input, dim=[2, 3], keepdim=True), torch.var(input, dim=[2, 3], keepdim=True)
-#         #out_in = (input - in_mean) / torch.sqrt(in_var + self.eps)
-#         #ln_mean, ln_var = fluid.layers.reduce_mean(input, dim=[1, 2, 3], keepdim=True), torch.var(input, dim=[1, 2, 3], keepdim=True)
-#         #out_ln = (input - ln_mean) / torch.sqrt(ln_var + self.eps)
-#         #out = self.rho.expand(input.shape[0], -1, -1, -1) * out_in + (1-self.rho.expand(input.shape[0], -1, -1, -1)) * out_ln
-#         #out = out * gamma.unsqueeze(2).unsqueeze(3) + beta.unsqueeze(2).unsqueeze(3)
-#         #out torch.Size([1, 256, 64, 64])
-#         return out
-
-
-# class ILN(fluid.dygraph.Layer):
-#     def __init__(self, num_features, eps=1e-5):
-#         super(ILN, self).__init__()
-#         self.eps = eps
-#         #self.rho = Parameter(torch.Tensor(1, num_features, 1, 1))
-#         #self.gamma = Parameter(torch.Tensor(1, num_features, 1, 1))
-#         #self.beta = Parameter(torch.Tensor(1, num_features, 1, 1))
-#         #self.rho = fluid.Tensor(1, num_features, 1, 1)
-#         #self.gamma = fluid.Tensor(1, num_features, 1, 1)
-#         #self.beta = fluid.Tensor(1, num_features, 1, 1)  
-#         self.rho = fluid.layers.fill_constant(shape=[1, num_features, 1, 1], value=0.0, dtype='float32')
-#         self.gamma = fluid.layers.fill_constant(shape=[1, num_features, 1, 1], value=1.0, dtype='float32')
-#         self.beta = fluid.layers.fill_constant(shape=[1, num_features, 1, 1], value=0.0, dtype='float32')
-#         # self.rho = fluid.layers.create_parameter(shape=[1, num_features, 1, 1], dtype='float32', is_bias=True,default_initializer=fluid.initializer.ConstantInitializer(0.0))
-#         # self.gamma = fluid.layers.create_parameter(shape=[1, num_features, 1, 1], dtype='float32', is_bias=True,default_initializer=fluid.initializer.ConstantInitializer(1.0))
-#         # self.beta = fluid.layers.create_parameter(shape=[1, num_features, 1, 1], dtype='float32', is_bias=True,default_initializer=fluid.initializer.ConstantInitializer(0.0))
-#         # self.rho = self.create_parameter(shape=[1, num_features, 1, 1], dtype='float32', is_bias=True,default_initializer=fluid.initializer.ConstantInitializer(0.0))
-#         # self.gamma = self.create_parameter(shape=[1, num_features, 1, 1], dtype='float32', is_bias=True,default_initializer=fluid.initializer.ConstantInitializer(1.0))
-#         # self.beta = self.create_parameter(shape=[1, num_features, 1, 1], dtype='float32', is_bias=True,default_initializer=fluid.initializer.ConstantInitializer(0.0))
-#         #self.rho = fluid.Tensor()
-#         #self.rho.set(np.ndarray([1, num_features, 1, 1]), fluid.CPUPlace())       
-#         #self.gamma = fluid.Tensor()
-#         #self.gamma.set(np.ndarray([1, num_features, 1, 1]), fluid.CPUPlace())   
-#         #self.beta = fluid.Tensor()
-#         #self.beta.set(np.ndarray([1, num_features, 1, 1]), fluid.CPUPlace())   
-        
-#         #self.rho.data.fill_(0.0)
-#         #self.gamma.data.fill_(1.0)
-#         #self.beta.data.fill_(0.0)
-
-#     def forward(self, input):
-#         #torch.Size([1, 128, 128, 128])
-#         ninput=input.numpy()
-#         #self.rho=self.rho.numpy()
-#         #self.gamma=self.gamma.numpy()
-#         #self.beta=self.beta.numpy()
-#         in_mean=np.mean(ninput, axis=(2, 3), keepdims=True)
-#         in_var=np.var(ninput, axis=(2, 3), keepdims=True)
-#         out_in = (ninput - in_mean) / np.sqrt(in_var + self.eps)
-#         ln_mean, ln_var = np.mean(ninput, axis=(1, 2, 3), keepdims=True), np.var(ninput, axis=(1, 2, 3), keepdims=True)
-#         out_ln = (ninput - ln_mean) / np.sqrt(ln_var + self.eps)
-#         out_in = fluid.dygraph.base.to_variable(out_in)
-#         out_ln = fluid.dygraph.base.to_variable(out_ln)
-#         ninput = fluid.dygraph.base.to_variable(ninput)        
-#         out = self.rho * out_in + (1-self.rho) * out_ln
-#         out = out * self.gamma + self.beta
-#         #out = fluid.dygraph.base.to_variable(out)
-#         #t = fluid.Tensor()
-#         #t.set(out, fluid.CPUPlace()) 
-        
-#         #in_mean, in_var = torch.mean(input, dim=[2, 3], keepdim=True), torch.var(input, dim=[2, 3], keepdim=True)
-#         #out_in = (input - in_mean) / torch.sqrt(in_var + self.eps)
-#         #ln_mean, ln_var = torch.mean(input, dim=[1, 2, 3], keepdim=True), torch.var(input, dim=[1, 2, 3], keepdim=True)
-#         #out_ln = (input - ln_mean) / torch.sqrt(ln_var + self.eps)
-#         #out = self.rho.expand(input.shape[0], -1, -1, -1) * out_in + (1-self.rho.expand(input.shape[0], -1, -1, -1)) * out_ln
-#         #out = out * self.gamma.expand(input.shape[0], -1, -1, -1) + self.beta.expand(input.shape[0], -1, -1, -1)
-#         #out torch.Size([1, 128, 128, 128])
-#         return out
-
 
 class Discriminator(fluid.dygraph.Layer):
     def __init__(self, input_nc, ndf=64, n_layers=5):
@@ -604,14 +457,15 @@ class ReflectionPad2d(fluid.dygraph.Layer):
     def forward(self, x):
         return fluid.layers.pad2d(x, [self.size] * 4, mode="reflect")
     
-    
-    
+        
 class ReLU(fluid.dygraph.Layer):
     def __init__(self, inplace=False):
         super(ReLU, self).__init__()
         self.inplace=inplace
 
     def forward(self, x):
+        
+        # return fluid.layers.relu(x)
         if self.inplace:
             x.set_value(fluid.layers.relu(x))
             return x
@@ -620,6 +474,23 @@ class ReLU(fluid.dygraph.Layer):
             return y
     
     
+# class Leaky_ReLU(fluid.dygraph.Layer):
+#     def __init__(self, inplace=False):
+#         super(ReLU, self).__init__()
+#         self.inplace=inplace
+
+#     def forward(self, x):
+#         if self.inplace:
+#             x.set_value(fluid.layers.leaky_relu(x))
+#             return x
+#         else:
+#             y=fluid.layers.relu(x)
+#             return y    
     
-    
-    
+class Leaky_ReLU(fluid.Layer):
+    def __init__(self, alpha=0.2):
+        super().__init__()
+        self.leaky_relu = lambda x: fluid.layers.leaky_relu(x, alpha=alpha)
+
+    def forward(self, x):
+        return self.leaky_relu(x)
