@@ -208,6 +208,7 @@ class UGATIT(object) :
                 except:
                     trainB_iter = self.trainB_loader
                     real_B, _ = next(trainB_iter)
+                    
                 real_A = fluid.dygraph.base.to_variable(real_A)
                 real_B = fluid.dygraph.base.to_variable(real_B)
               

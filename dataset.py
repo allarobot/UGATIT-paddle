@@ -1,6 +1,6 @@
 
 from PIL import Image
-
+from paddle.fluid.io import Dataset
 import os
 import os.path
 import numpy as np
@@ -208,7 +208,99 @@ def custom_reader(root,transforms=None):
                     #img = t(img)
             yield img, target
     return reader
-class DatasetFolder(object):
+# class DatasetFolder(object):
+#     def __init__(self, root, loader, extensions, transform=None, target_transform=None):
+#         # classes, class_to_idx = find_classes(root)
+#         samples = make_dataset(root, extensions)
+#         if len(samples) == 0:
+#             raise(RuntimeError("Found 0 files in subfolders of: " + root + "\n"
+#                                "Supported extensions are: " + ",".join(extensions)))
+
+#         self.root = root
+#         self.loader = loader
+#         self.extensions = extensions
+#         self.samples = samples
+#         self.niter=0
+#         self.length=len(self.samples)
+#         self.transform = transform
+#         self.target_transform = target_transform
+
+    
+#     def __next__(self):
+#         """
+#         Args:
+#             index (int): Index
+
+#         Returns:
+#             tuple: (sample, target) where target is class_index of the target class.
+#         """
+#         if self.niter<self.length:
+#             path, target = self.samples[self.niter]
+#             img = Image.open(path)
+#             if img.mode != 'RGB':
+#                 img = img.convert('RGB') 
+#             img=img.transpose(Image.FLIP_LEFT_RIGHT)
+#             img=img.resize((256+30, 256+30))
+#             img=RandomCrop(256)(img)
+#             img=np.array(img)
+#             img=img.transpose((2, 0, 1))
+            
+#             #mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)
+#             img=normalize(img, (0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+#             #img=img.resize((256+30, 256+30))
+#             #img=img.crop(256,256,256,256)
+#             #sample = self.loader(path)
+#             #sample = cv2.flip(sample,1,dst=None) #水平镜像
+#             #sample=cv2.resize(sample,(256+30,256+30))
+#             #sample=RandomCrop(256)(sample)
+#             #cv2.normalize(sample,sample)
+#             #if self.transform is not None:
+#                 #sample = self.transform(img)
+#             #if self.target_transform is not None:
+#                 #target = self.target_transform(target)
+            
+#             self.niter += 1  
+#             #im = np.array(sample[0]).reshape(1, 3, 256,256).astype('float32')
+#             #a=im.reshape(256,256,-1)
+
+#             #a=cv2.cvtColor(a, cv2.COLOR_RGB2BGR)
+#             #cv2.imwrite("1.jpg", a)         
+#             return img.reshape(1, 3, 256,256).astype('float32'), target  
+#         else:
+#             self.niter=0      
+#     def __iter__(self):
+#         return self
+#     #def __getitem__(self, index):
+#         #"""
+#         #Args:
+#             #index (int): Index
+
+#         #Returns:
+#             #tuple: (sample, target) where target is class_index of the target class.
+#         #"""
+#         #path, target = self.samples[index]
+#         #sample = self.loader(path)
+#         #if self.transform is not None:
+#             #sample = self.transform(sample)
+#         #if self.target_transform is not None:
+#             #target = self.target_transform(target)
+
+#         #return sample, target
+
+#     def __len__(self):
+#         return len(self.samples)
+
+#     def __repr__(self):
+#         fmt_str = 'Dataset ' + self.__class__.__name__ + '\n'
+#         fmt_str += '    Number of datapoints: {}\n'.format(self.__len__())
+#         fmt_str += '    Root Location: {}\n'.format(self.root)
+#         tmp = '    Transforms (if any): '
+#         fmt_str += '{0}{1}\n'.format(tmp, self.transform.__repr__().replace('\n', '\n' + ' ' * len(tmp)))
+#         tmp = '    Target Transforms (if any): '
+#         fmt_str += '{0}{1}'.format(tmp, self.target_transform.__repr__().replace('\n', '\n' + ' ' * len(tmp)))
+#         return fmt_str
+
+class DatasetFolder(Dataset):
     def __init__(self, root, loader, extensions, transform=None, target_transform=None):
         # classes, class_to_idx = find_classes(root)
         samples = make_dataset(root, extensions)

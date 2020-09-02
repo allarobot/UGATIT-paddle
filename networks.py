@@ -246,7 +246,7 @@ class adaILN(fluid.dygraph.Layer):
         # print("rho",fluid.layers.reduce_mean(self.rho).numpy())
         out = self.rho * out_in + (1 - self.rho)*out_ln
         out=out*fluid.layers.unsqueeze(fluid.layers.unsqueeze(gamma,2),3)+fluid.layers.unsqueeze(fluid.layers.unsqueeze(beta,2),3)
-        # out = out * gamma + beta
+        #out = out * gamma + beta
         return out
 
 class ILN(fluid.dygraph.Layer):
@@ -268,8 +268,8 @@ class ILN(fluid.dygraph.Layer):
 
     def forward(self, input):
         in_mean, in_var = fluid.layers.reduce_mean(input, dim=[2,3], keep_dim=True), self.var(input, dim =[2,3])
-        ln_mean, ln_var = fluid.layers.reduce_mean(input, dim=[1,2,3], keep_dim=True), self.var(input, dim=[1,2,3])
         out_in = (input - in_mean) / fluid.layers.sqrt(in_var + self.eps)
+        ln_mean, ln_var = fluid.layers.reduce_mean(input, dim=[1,2,3], keep_dim=True), self.var(input, dim=[1,2,3])
         out_ln = (input - ln_mean) / fluid.layers.sqrt(ln_var + self.eps)
         # ex_rho = fluid.layers.expand(self.rho, expand_times = [input.shape[0], 1, 1, 1])
         # ex_gamma = fluid.layers.expand(self.gamma, expand_times = [input.shape[0], 1, 1, 1])
@@ -464,8 +464,6 @@ class ReLU(fluid.dygraph.Layer):
         self.inplace=inplace
 
     def forward(self, x):
-        
-        # return fluid.layers.relu(x)
         if self.inplace:
             x.set_value(fluid.layers.relu(x))
             return x
