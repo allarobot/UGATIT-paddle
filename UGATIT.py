@@ -1,13 +1,13 @@
 import time, itertools
-from dataset import ImageFolder,DatasetFolder
-#from torchvision import transforms
 import paddle.fluid as fluid
-# from paddlex.cls import transforms
 import paddle
-#from torch.utils.data import DataLoader
 from networks import *
 from utils import *
 from glob import glob
+
+from dataset import ImageFolder
+from paddlex.cls import transforms
+from paddle.fluid.io import DataLoader
 
 class UGATIT(object) :
     def __init__(self, args):
@@ -84,39 +84,39 @@ class UGATIT(object) :
 
     def build_model(self):
         """ DataLoader """
-        # train_transform = transforms.Compose([
-        #     transforms.RandomHorizontalFlip(),
-        #     #transforms.Resize((self.img_size + 30, self.img_size+30)),
-        #     transforms.RandomCrop(self.img_size),
-        #     #transforms.ToTensor(),
-        #     transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
-        # ])
-        # test_transform = transforms.Compose([
-        #     #transforms.Resize((self.img_size, self.img_size)),
-        #     #transforms.ToTensor(),
-        #     transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
-        # ])
+        train_transform = transforms.Compose([
+            transforms.RandomHorizontalFlip(),
+            transforms.ResizeByShort(short_size=self.img_size + 30, max_size=-1),
+            transforms.RandomCrop(self.img_size),
+            # transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+        ])
+        test_transform = transforms.Compose([
+            transforms.ResizeByShort(short_size=self.img_size, max_size=-1),
+            # transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+        ])
 
-        self.trainA = ImageFolder(os.path.join('dataset', self.dataset, 'trainA'))
-        self.trainB = ImageFolder(os.path.join('dataset', self.dataset, 'trainB'))
-        self.testA = ImageFolder(os.path.join('dataset', self.dataset, 'testA'))
-        self.testB = ImageFolder(os.path.join('dataset', self.dataset, 'testB'))
-        #self.trainA_loader = DataLoader(self.trainA, batch_size=self.batch_size, shuffle=True)
-        #self.trainB_loader = DataLoader(self.trainB, batch_size=self.batch_size, shuffle=True)
-        #self.testA_loader = DataLoader(self.testA, batch_size=1, shuffle=False)
-        #self.testB_loader = DataLoader(self.testB, batch_size=1, shuffle=False)
-        #self.trainA_loader = paddle.batch(self.trainA, batch_size=self.batch_size)
-        #self.trainB_loader = paddle.batch(self.trainB, batch_size=self.batch_size)
-        #self.testA_loader = paddle.batch(self.testA, batch_size=1)
-        #self.testB_loader = paddle.batch(self.testB, batch_size=1)
-        # self.trainA_loader = iter(self.trainA)
-        # self.trainB_loader = iter(self.trainB)
-        # self.testA_loader = iter(self.testA)
-        # self.testB_loader = iter(self.testB)   
-        self.trainA_loader = self.trainA
-        self.trainB_loader = self.trainB
-        self.testA_loader = self.testA
-        self.testB_loader = self.testB        
+        self.trainA = ImageFolder(os.path.join('dataset', self.dataset, 'trainA'), tranform=train_transform)
+        self.trainB = ImageFolder(os.path.join('dataset', self.dataset, 'trainB'), tranform=train_transform)
+        self.testA = ImageFolder(os.path.join('dataset', self.dataset, 'testA'), tranform=test_transform)
+        self.testB = ImageFolder(os.path.join('dataset', self.dataset, 'testB'), tranform=test_transform)
+
+        self.trainA_loader = DataLoader(self.trainA, batch_size=self.batch_size, shuffle=True, return_list=True, places=fluid.cuda_places(0))
+        self.trainB_loader = DataLoader(self.trainB, batch_size=self.batch_size, shuffle=True, return_list=True, places=fluid.cuda_places(0))
+        self.testA_loader = DataLoader(self.testA, batch_size=1, shuffle=False, return_list=True, places=fluid.cuda_places(0))
+        self.testB_loader = DataLoader(self.testB, batch_size=1, shuffle=False, return_list=True, places=fluid.cuda_places(0))
+
+        #
+        # self.trainA = ImageFolder(os.path.join('dataset', self.dataset, 'trainA'))
+        # self.trainB = ImageFolder(os.path.join('dataset', self.dataset, 'trainB'))
+        # self.testA = ImageFolder(os.path.join('dataset', self.dataset, 'testA'))
+        # self.testB = ImageFolder(os.path.join('dataset', self.dataset, 'testB'))
+ 
+        # self.trainA_loader = self.trainA
+        # self.trainB_loader = self.trainB
+        # self.testA_loader = self.testA
+        # self.testB_loader = self.testB        
         
 
         #""" Define Generator, Discriminator """
@@ -200,13 +200,13 @@ class UGATIT(object) :
                     #real_A, _ = trainA_iter.next()
                     real_A, _ = next(trainA_iter)
                 except:
-                    trainA_iter = self.trainA_loader
+                    trainA_iter = iter(self.trainA_loader)
                     real_A, _ = next(trainA_iter)
         
                 try:
                     real_B, _ = next(trainB_iter)
                 except:
-                    trainB_iter = self.trainB_loader
+                    trainB_iter = iter(self.trainB_loader)
                     real_B, _ = next(trainB_iter)
                     
                 real_A = fluid.dygraph.base.to_variable(real_A)
@@ -462,13 +462,13 @@ class UGATIT(object) :
                         try:
                             real_A, _ = next(testA_iter)
                         except:
-                            testA_iter = self.testA_loader
+                            testA_iter = iter(self.testA_loader)
                             real_A, _ = next(testA_iter)
         
                         try:
                             real_B, _ = next(testB_iter)
                         except:
-                            testB_iter = self.testB_loader
+                            testB_iter = iter(self.testB_loader)
                             real_B, _ = next(testB_iter)  
                         real_A = fluid.dygraph.to_variable(real_A)
                         real_B = fluid.dygraph.to_variable(real_B)                        
