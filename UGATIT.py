@@ -180,7 +180,7 @@ class UGATIT(object) :
             self.G_optim  = fluid.optimizer.Adam(learning_rate=self.lr, beta1=0.5, beta2=0.999, parameter_list=self.genA2B.parameters()+self.genB2A.parameters(),regularization=fluid.regularizer.L2Decay(regularization_coeff=self.weight_decay))
             
             self.D_optim  = fluid.optimizer.Adam(learning_rate=self.lr, beta1=0.5, beta2=0.999,  parameter_list=self.disGA.parameters()+self.disGB.parameters()+self.disLA.parameters()+self.disLB.parameters(),regularization=fluid.regularizer.L2Decay(regularization_coeff=self.weight_decay))    
-            start_iter = 1
+            start_iter = 4391
             if self.resume:
                 print('load model!!!')
                 self.sload()
@@ -198,9 +198,9 @@ class UGATIT(object) :
             print('training start !')
             start_time = time.time()
             for step in range(start_iter, self.iteration + 1):
-                # if self.decay_flag and step > (self.iteration // 2):
-                #     self.G_optim.param_groups[0]['lr'] -= (self.lr / (self.iteration // 2))
-                #     self.D_optim.param_groups[0]['lr'] -= (self.lr / (self.iteration // 2))
+                if self.decay_flag and step > (self.iteration // 2):
+                    self.G_optim.param_and_grad[0]['learning_rate'] -= (self.lr / (self.iteration // 2))
+                    self.D_optim.param_and_grad[0]['learning_rate'] -= (self.lr / (self.iteration // 2))
         
                 try:
                     #real_A, _ = trainA_iter.next()
@@ -383,15 +383,14 @@ class UGATIT(object) :
                 self.genB2A.clear_gradients()                
                 #self.G_optim.step()
         
-                # clip parameter of AdaILN and ILN, applied after optimizer step
-                def clip_rho(net, vmin=0, vmax=1):
-                    for name, param in net.named_parameters():
-                        if 'rho' in name:
-                            param.set_value(fluid.layers.clip(param, vmin, vmax))    
-                clip_rho(self.genA2B)
-                clip_rho(self.genB2A)
-                #self.genA2B.apply(self.Rho_clipper)
-                #self.genB2A.apply(self.Rho_clipper)
+                # # clip parameter of AdaILN and ILN, applied after optimizer step
+                # def clip_rho(net, vmin=0, vmax=1):
+                #     for name, param in net.named_parameters():
+                #         if 'rho' in name:
+                #             param.set_value(fluid.layers.clip(param, vmin, vmax))    
+                # clip_rho(self.genA2B)
+                # clip_rho(self.genB2A)
+
 
                 message = "[%5d/%5d] time: %4.4f d_loss: %.8f, g_loss: %.8f" % (step, self.iteration, time.time() - start_time, Discriminator_loss, Generator_loss)
                 self.log(message)
@@ -404,17 +403,6 @@ class UGATIT(object) :
         
                     self.genA2B.eval(), self.genB2A.eval(), self.disGA.eval(), self.disGB.eval(), self.disLA.eval(), self.disLB.eval()
                     for _ in range(train_sample_num):
-                        #try:
-                            #real_A, _ = trainA_iter.next()
-                        #except:
-                            #trainA_iter = iter(self.trainA_loader)
-                            #real_A, _ = trainA_iter.next()
-        
-                        #try:
-                            #real_B, _ = trainB_iter.next()
-                        #except:
-                            #trainB_iter = iter(self.trainB_loader)
-                            #real_B, _ = trainB_iter.next()
                         try:
                             real_A, _ = next(trainA_iter)
                         except:
@@ -456,17 +444,6 @@ class UGATIT(object) :
                                                                    RGB2BGR(tensor2numpy(denorm(fake_B2A2B[0])))), 0)), 1)
         
                     for _ in range(test_sample_num):
-                        #try:
-                            #real_A, _ = testA_iter.next()
-                        #except:
-                            #testA_iter = iter(self.testA_loader)
-                            #real_A, _ = testA_iter.next()
-        
-                        #try:
-                            #real_B, _ = testB_iter.next()
-                        #except:
-                            #testB_iter = iter(self.testB_loader)
-                            #real_B, _ = testB_iter.next()
                         try:
                             real_A, _ = next(testA_iter)
                         except:
@@ -515,14 +492,6 @@ class UGATIT(object) :
                     self.save(os.path.join(self.result_dir, self.dataset, 'model'), step)
         
                 if step % 5000 == 0:
-                    #params = {}
-                    #params['genA2B'] = self.genA2B.state_dict()
-                    #params['genB2A'] = self.genB2A.state_dict()
-                    #params['disGA'] = self.disGA.state_dict()
-                    #params['disGB'] = self.disGB.state_dict()
-                    #params['disLA'] = self.disLA.state_dict()
-                    #params['disLB'] = self.disLB.state_dict()
-                    #fluid.save(params, os.path.join(self.result_dir, self.dataset + '_params_latest.pt'))
                     pa=os.path.join(self.result_dir, self.dataset ,'genA2B_'+str(step))
                     fluid.save_dygraph(self.genA2B.state_dict(), pa)
                     pb=os.path.join(self.result_dir, self.dataset , 'genB2A_'+str(step))
@@ -566,14 +535,7 @@ class UGATIT(object) :
         
         ph=os.path.join(dir, self.dataset + 'genB2A_'+str(step))
         fluid.save_dygraph(self.D_optim.state_dict(), ph)          
-        #params = {}
-        #params['genA2B'] = self.genA2B.state_dict()
-        #params['genB2A'] = self.genB2A.state_dict()
-        #params['disGA'] = self.disGA.state_dict()
-        #params['disGB'] = self.disGB.state_dict()
-        #params['disLA'] = self.disLA.state_dict()
-        #params['disLB'] = self.disLB.state_dict()
-        #fluid.save(params, os.path.join(dir, self.dataset + '_params_%07d.pt' % step))
+
     def sload(self):
         pa='results/selfie2anime/smodel/genA2B_30000.pdparams'
         a,c=fluid.load_dygraph(pa)
@@ -693,13 +655,14 @@ class UGATIT(object) :
             """ Define Generator, Discriminator """
             self.genA2B = ResnetGenerator(input_nc=3, output_nc=3, ngf=self.ch, n_blocks=self.n_res, img_size=self.img_size, light=self.light)
             self.genB2A = ResnetGenerator(input_nc=3, output_nc=3, ngf=self.ch, n_blocks=self.n_res, img_size=self.img_size, light=self.light)
-            self.disGA = Discriminator(input_nc=3, ndf=self.ch, n_layers=7)
-            self.disGB = Discriminator(input_nc=3, ndf=self.ch, n_layers=7)
-            self.disLA = Discriminator(input_nc=3, ndf=self.ch, n_layers=5)
-            self.disLB = Discriminator(input_nc=3, ndf=self.ch, n_layers=5)  
-            self.G_optim  = fluid.optimizer.Adam(learning_rate=self.lr, beta1=0.5, beta2=0.999, parameter_list=self.genA2B.parameters()+self.genB2A.parameters(),regularization=fluid.regularizer.L2Decay(regularization_coeff=self.weight_decay))
+            # self.disGA = Discriminator(input_nc=3, ndf=self.ch, n_layers=7)
+            # self.disGB = Discriminator(input_nc=3, ndf=self.ch, n_layers=7)
+            # self.disLA = Discriminator(input_nc=3, ndf=self.ch, n_layers=5)
+            # self.disLB = Discriminator(input_nc=3, ndf=self.ch, n_layers=5)  
+            # self.G_optim  = fluid.optimizer.Adam(learning_rate=self.lr, beta1=0.5, beta2=0.999, parameter_list=self.genA2B.parameters()+self.genB2A.parameters(),regularization=fluid.regularizer.L2Decay(regularization_coeff=self.weight_decay))
             
-            self.D_optim  = fluid.optimizer.Adam(learning_rate=self.lr, beta1=0.5, beta2=0.999,  parameter_list=self.disGA.parameters()+self.disGB.parameters()+self.disLA.parameters()+self.disLB.parameters(),regularization=fluid.regularizer.L2Decay(regularization_coeff=self.weight_decay))               
+            # self.D_optim  = fluid.optimizer.Adam(learning_rate=self.lr, beta1=0.5, beta2=0.999,  parameter_list=self.disGA.parameters()+self.disGB.parameters()+self.disLA.parameters()+self.disLB.parameters(),regularization=fluid.regularizer.L2Decay(regularization_coeff=self.weight_decay))               
+            
             #model_list = glob(os.path.join(self.result_dir, self.dataset, 'model', '*.pdparams'))
             #if not len(model_list) == 0:
                 #model_list.sort()
