@@ -88,12 +88,10 @@ class UGATIT(object) :
             transforms.RandomHorizontalFlip(),
             transforms.ResizeByShort(short_size=self.img_size + 30, max_size=-1),
             transforms.RandomCrop(self.img_size),
-            # transforms.ToTensor(),
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
         ])
         test_transform = transforms.Compose([
             transforms.ResizeByShort(short_size=self.img_size, max_size=-1),
-            # transforms.ToTensor(),
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
         ])
 
@@ -263,7 +261,7 @@ class UGATIT(object) :
                 fake_LB_logit, fake_LB_cam_logit, _ = self.disLB(fake_A2B)
                 
                 ones = fluid.dygraph.to_variable(np.ones(real_GA_logit.shape).astype('float32'))
-                zeros=fluid.dygraph.to_variable(np.zeros(fake_GA_logit.shape).astype('float32'))
+                zeros = fluid.dygraph.to_variable(np.zeros(fake_GA_logit.shape).astype('float32'))
                 D_ad_loss_GA = self.MSE_loss(real_GA_logit, ones) + self.MSE_loss(fake_GA_logit, zeros)
                 
                 ones = fluid.dygraph.to_variable(np.ones(real_GA_cam_logit.shape).astype('float32'))
@@ -410,13 +408,13 @@ class UGATIT(object) :
                         try:
                             real_A, _ = next(trainA_iter)
                         except:
-                            trainA_iter = self.trainA_loader
+                            trainA_iter = iter(self.trainA_loader)
                             real_A, _ = next(trainA_iter)
         
                         try:
                             real_B, _ = next(trainB_iter)
                         except:
-                            trainB_iter = self.trainB_loader
+                            trainB_iter = iter(self.trainB_loader)
                             real_B, _ = next(trainB_iter)
                         real_A = fluid.dygraph.to_variable(real_A)
                         real_B = fluid.dygraph.to_variable(real_B)                    

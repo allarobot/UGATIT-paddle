@@ -1,6 +1,6 @@
 import paddle.fluid as fluid
 from paddle.fluid.layer_helper import LayerHelper
-from paddle.fluid.dygraph import Conv2D, Pool2D, BatchNorm, Linear,PRelu, SpectralNorm, LayerNorm, InstanceNorm
+from paddle.fluid.dygraph import Conv2D,Linear, Pool2D, BatchNorm, PRelu, SpectralNorm, LayerNorm, InstanceNorm
 from paddle.fluid.dygraph import Sequential
 import paddle.fluid.dygraph.nn as nn
 
@@ -24,8 +24,8 @@ import paddle.fluid.dygraph.nn as nn
 
 def init_w():
     w_param_attrs = fluid.ParamAttr(
-                                initializer = fluid.initializer.NormalInitializer(loc=0.0,scale=0.2),
-                                learning_rate=0.0001,
+                                initializer = fluid.initializer.NormalInitializer(loc=0.0,scale=0.02),
+                                learning_rate=1.0, #0.0001
                                 regularizer=fluid.regularizer.L2Decay(0.0001),
                                 trainable=True)
     return w_param_attrs
@@ -34,13 +34,22 @@ def init_bias(use_bias=True):
     if use_bias:
         bias_param_attrs = fluid.ParamAttr(
                                     initializer = fluid.initializer.ConstantInitializer(value=0.0),
-                                    learning_rate=0.0001,
+                                    learning_rate=1.0, #0.0001
                                     #regularizer=fluid.regularizer.L2Decay(0.0001),
                                     trainable=True)
     else:
         bias_param_attrs = False
 
     return bias_param_attrs
+
+class Conv2D_(Conv2D):
+    def __init__(self,num_channels, num_filters, filter_size, stride=1, padding=0, use_bias=True, act=None):
+        super(Conv2D_,self).__init__(num_channels, num_filters, filter_size, stride=stride, padding=padding, param_attr=init_w(),bias_attr=init_bias(use_bias),act=act)
+
+
+class Linear_(Linear):
+    def __init__(self, input_dim, output_dim, use_bias=True, act=None):
+        super(Linear_,self).__init__(input_dim=input_dim, output_dim=output_dim, param_attr=init_w(),bias_attr=init_bias(use_bias), act=act)
 
 
 class MLP(fluid.dygraph.Layer):
@@ -49,22 +58,23 @@ class MLP(fluid.dygraph.Layer):
                 # ops for  Gamma, Beta block
         self.light = light
         
-        if self.light:
-            FC = [
-                  Linear(in_nc, out_nc,param_attr=init_w(),bias_attr=init_bias(use_bias),act='relu'),
-                  Linear(out_nc, out_nc,param_attr=init_w(),bias_attr=init_bias(use_bias),act='relu')
-                  ]
-        else:
-            FC = [
-                  Linear(out_nc, out_nc,param_attr=init_w(),bias_attr=init_bias(use_bias),act='relu'),
-                  Linear(out_nc, out_nc,param_attr=init_w(),bias_attr=init_bias(use_bias), act='relu')
-                  ]
+        # if self.light:
+        #     FC = [
+        #           Linear(in_nc, out_nc,param_attr=init_w(),bias_attr=init_bias(use_bias),act='relu'),
+        #           Linear(out_nc, out_nc,param_attr=init_w(),bias_attr=init_bias(use_bias),act='relu')
+        #           ]
+        # else:
+        FC = [
+                Linear(in_nc, out_nc,param_attr=init_w(),bias_attr=init_bias(use_bias),act='relu'),
+                Linear(out_nc, out_nc,param_attr=init_w(),bias_attr=init_bias(use_bias), act='relu')
+                ]
             
         self.gamma = Linear(out_nc, out_nc,param_attr=init_w(),bias_attr=init_bias(use_bias))  # FC256
         self.beta = Linear(out_nc, out_nc,param_attr=init_w(),bias_attr=init_bias(use_bias)) # FC256
         self.FC = Sequential(*FC)
   
     def forward(self,x):
+        #print("x shape: ",x.shape)
         # alpha, beta
         if self.light:
             # 1/3,shape(N,256,64,64) -->(N,256,1,1)
@@ -170,15 +180,7 @@ class LIN(fluid.dygraph.Layer):
         out_in = (input - in_mean) / fluid.layers.sqrt(in_var + self.eps)
         ln_mean, ln_var = fluid.layers.reduce_mean(input, dim=[1,2,3], keep_dim=True), self.var(input, dim=[1,2,3])
         out_ln = (input - ln_mean) / fluid.layers.sqrt(ln_var + self.eps)
-        # ex_rho = fluid.layers.expand(self.rho, expand_times = [input.shape[0], 1, 1, 1])
-        # ex_gamma = fluid.layers.expand(self.gamma, expand_times = [input.shape[0], 1, 1, 1])
-        # ex_beta = fluid.layers.expand(self.beta, expand_times = [input.shape[0], 1, 1, 1])
-        # print("rho",fluid.layers.reduce_mean(self.rho).numpy())
-        # print("gamma",fluid.layers.reduce_mean(self.gamma).numpy())
-        # print("beta",fluid.layers.reduce_mean(self.beta).numpy())
-        # out = ex_rho * out_in + (1 - ex_rho) * out_ln
         out = self.rho * out_in + (1 - self.rho)*out_ln
-        # out=out*fluid.layers.unsqueeze(fluid.layers.unsqueeze(self.gamma,2),3)+fluid.layers.unsqueeze(fluid.layers.unsqueeze(self.beta,2),3)
         out = out * self.gamma + self.beta
         return out
 
@@ -221,6 +223,36 @@ class BCEWithLogitsLoss():
             return out
         
         
+# class Spectralnorm(fluid.dygraph.Layer):
+#     def __init__(self,
+#                  layer,
+#                  dim=0,
+#                  power_iters=1,
+#                  eps=1e-12,
+#                  dtype='float32'):
+#         super(Spectralnorm, self).__init__()
+#         self.spectral_norm = SpectralNorm(layer.weight.shape, dim=dim, power_iters=power_iters, eps=eps, dtype=dtype)
+#         self.dim = dim
+#         self.power_iters = power_iters
+#         self.eps = eps
+#         self.layer = layer
+#         # weight = layer._parameters['weight']
+#         # del layer._parameters['weight']
+#         # self.weight_orig = self.create_parameter(weight.shape, dtype=weight.dtype)
+#         # self.weight_orig.set_value(weight)
+
+#     def forward(self, x):
+#         weight = self.layer._parameters['weight']
+#         print("orig weight.shape:",weight.shape)
+#         del self.layer._parameters['weight']
+#         weight_orig = self.create_parameter(weight.shape, dtype=weight.dtype)
+#         weight_orig.set_value(weight)
+#         weight = self.spectral_norm(weight_orig)
+#         print("spectrum new_weight.shape:",weight.shape)
+#         self.layer.weight = weight
+#         out = self.layer(x)
+#         return out
+
 class Spectralnorm(fluid.dygraph.Layer):
     def __init__(self,
                  layer,
@@ -243,6 +275,12 @@ class Spectralnorm(fluid.dygraph.Layer):
         weight = self.spectral_norm(self.weight_orig)
         self.layer.weight = weight
         out = self.layer(x)
+        #weight = layer._parameters['weight']
+        #del layer._parameters['weight']
+        # self.weight_orig = self.create_parameter(weight.shape, dtype=weight.dtype)
+        ##update origi
+        self.weight_orig.set_value(weight)
+
         return out
 
 class ReflectionPad2d(fluid.dygraph.Layer):
