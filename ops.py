@@ -206,31 +206,6 @@ class BCEWithLogitsLoss():
             return out
         
         
-# class Spectralnorm(fluid.dygraph.Layer):
-#     def __init__(self,
-#                  layer,
-#                  dim=0,
-#                  power_iters=1,
-#                  eps=1e-12,
-#                  dtype='float32'):
-#         super(Spectralnorm, self).__init__()
-#         self.spectral_norm = SpectralNorm(layer.weight.shape, dim=dim, power_iters=power_iters, eps=eps, dtype=dtype)
-#         self.dim = dim
-#         self.power_iters = power_iters
-#         self.eps = eps
-#         self.layer = layer
-#         # weight = layer._parameters['weight']
-#         # del layer._parameters['weight']
-#         # self.weight_orig = self.create_parameter(weight.shape, dtype=weight.dtype)
-#         # self.weight_orig.set_value(weight)
-
-#     def forward(self, x):
-#         weight = self.spectral_norm(weight_orig)
-#         print("spectrum new_weight.shape:",weight.shape)
-#         self.layer.weight = weight
-#         out = self.layer(x)
-#         return out
-
 class Spectralnorm(fluid.dygraph.Layer):
     def __init__(self,
                  layer,
@@ -239,7 +214,7 @@ class Spectralnorm(fluid.dygraph.Layer):
                  eps=1e-12,
                  dtype='float32'):
         super(Spectralnorm, self).__init__()
-        self.spectral_norm = nn.SpectralNorm(layer.weight.shape, dim, power_iters, eps, dtype)
+        self.spectral_norm = SpectralNorm(layer.weight.shape, dim=dim, power_iters=power_iters, eps=eps, dtype=dtype)
         self.dim = dim
         self.power_iters = power_iters
         self.eps = eps
@@ -253,11 +228,35 @@ class Spectralnorm(fluid.dygraph.Layer):
         weight = self.spectral_norm(self.weight_orig)
         self.layer.weight = weight
         out = self.layer(x)
-
-        ##update origi
-        self.weight_orig.set_value(weight)
-
         return out
+
+# class Spectralnorm(fluid.dygraph.Layer):
+#     def __init__(self,
+#                  layer,
+#                  dim=0,
+#                  power_iters=1,
+#                  eps=1e-12,
+#                  dtype='float32'):
+#         super(Spectralnorm, self).__init__()
+#         self.spectral_norm = nn.SpectralNorm(layer.weight.shape, dim, power_iters, eps, dtype)
+#         self.dim = dim
+#         self.power_iters = power_iters
+#         self.eps = eps
+#         self.layer = layer
+#         weight = layer._parameters['weight']
+#         del layer._parameters['weight']
+#         self.weight_orig = self.create_parameter(weight.shape, dtype=weight.dtype)
+#         self.weight_orig.set_value(weight)
+
+#     def forward(self, x):
+#         weight = self.spectral_norm(self.weight_orig)
+#         self.layer.weight = weight
+#         out = self.layer(x)
+
+#         ##update origi
+#         self.weight_orig.set_value(weight)
+
+#         return out
 
 class ReflectionPad2d(fluid.dygraph.Layer):
     def __init__(self, size):
