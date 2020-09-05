@@ -1,9 +1,8 @@
 import paddle.fluid as fluid
-from paddle.fluid.layer_helper import LayerHelper
-from paddle.fluid.dygraph import Conv2D, Pool2D, BatchNorm, Linear, PRelu, LayerNorm, InstanceNorm#,SpectralNorm
+#from paddle.fluid.layer_helper import LayerHelper
+#from paddle.fluid.dygraph import Conv2D, Pool2D, BatchNorm, Linear, PRelu, LayerNorm, InstanceNorm#,SpectralNorm
 from paddle.fluid.dygraph import Sequential
-import paddle.fluid.dygraph.nn as nn
-#from paddle.fluid.Tensor import tensor
+#import paddle.fluid.dygraph.nn as nn
 import numpy as np
 from ops import *
 
@@ -55,16 +54,12 @@ class ResnetGenerator(fluid.dygraph.Layer):
         #           Linear(ngf * mult, ngf * mult,bias_attr=False,act='relu')
         #           #nn.ReLU(True)
         #           ]
-            
-
         # else:
         #     FC = [Linear(img_size // mult * img_size // mult * ngf * mult, ngf * mult, bias_attr=False,act='relu'),
         #           #nn.ReLU(True),
         #           Linear(ngf * mult, ngf * mult,bias_attr=False, act='relu')
         #           #nn.ReLU(True)
         #           ]
-                
-            
         # self.gamma = Linear(ngf * mult, ngf * mult,bias_attr=False)  # FC256
         # self.beta = Linear(ngf * mult, ngf * mult,bias_attr=False) # FC256
         if self.light:
@@ -81,8 +76,7 @@ class ResnetGenerator(fluid.dygraph.Layer):
         UpBlock2 = []
         for i in range(n_upsampling):
             mult = 2**(n_upsampling - i)
-            UpBlock2 += [#nn.Upsample(scale_factor=2, mode='nearest'),
-                         #fluid.layers.pad2d(1),
+            UpBlock2 += [
                          Upsample(),
                          ReflectionPad2d(1),
                          Conv2D_(ngf * mult, ngf * mult // 2, filter_size=3, stride=1, padding=0),
@@ -102,9 +96,8 @@ class ResnetGenerator(fluid.dygraph.Layer):
 
     def forward(self, input):  
         # Encoder and Bottleneck  
-        # print("input.shape: ",input.shape)   
         x = self.DownBlock(input) # shape=(N,256,64,64)
-        # print("x.shape: ",x.shape)
+
         # CAM 1/2
         gap = Pool2D(pool_size=x.shape[-1],pool_stride=x.shape[-1],pool_type='avg')(x) # shape=(N,256,1,1)
         gap = fluid.layers.reshape(gap, shape=[x.shape[0], -1]) #torch.Size([1, 1]) # shape=(N,256)

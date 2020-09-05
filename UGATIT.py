@@ -19,6 +19,7 @@ class UGATIT(object) :
             self.model_name = 'UGATIT'
 
         self.result_dir = args.result_dir
+        self.log_path = f'{self.result_dir}/log.txt'
         self.dataset = args.dataset
 
         self.iteration = args.iteration
@@ -51,6 +52,7 @@ class UGATIT(object) :
         self.benchmark_flag = args.benchmark_flag
         self.resume = args.resume
 
+        ensure_folder_exsit(self.result_dir)
 
         print()
 
@@ -78,9 +80,15 @@ class UGATIT(object) :
         print("# identity_weight : ", self.identity_weight)
         print("# cam_weight : ", self.cam_weight)
 
+    def log(self, message):
+        #if self.config.verbose:
+        print(message)
+        with open(self.log_path, 'a+') as logger:
+            logger.write(f'{message}\n')
     ##################################################################################
     # Model
     ##################################################################################
+
 
     def build_model(self):
         """ DataLoader """
@@ -384,8 +392,10 @@ class UGATIT(object) :
                 clip_rho(self.genB2A)
                 #self.genA2B.apply(self.Rho_clipper)
                 #self.genB2A.apply(self.Rho_clipper)
-        
-                print("[%5d/%5d] time: %4.4f d_loss: %.8f, g_loss: %.8f" % (step, self.iteration, time.time() - start_time, Discriminator_loss, Generator_loss))
+
+                message = "[%5d/%5d] time: %4.4f d_loss: %.8f, g_loss: %.8f" % (step, self.iteration, time.time() - start_time, Discriminator_loss, Generator_loss)
+                self.log(message)
+
                 if step % self.print_freq == 0:
                     train_sample_num = 5
                     test_sample_num = 5
@@ -496,7 +506,7 @@ class UGATIT(object) :
                                                                    RGB2BGR(tensor2numpy(denorm(fake_B2A[0]))),
                                                                    cam(tensor2numpy(fake_B2A2B_heatmap[0]), self.img_size),
                                                                    RGB2BGR(tensor2numpy(denorm(fake_B2A2B[0])))), 0)), 1)
-        
+                    ensure_folder_exsit(os.path.join(self.result_dir, self.dataset, 'img'))
                     cv2.imwrite(os.path.join(self.result_dir, self.dataset, 'img', 'A2B_%07d.png' % step), A2B * 255.0)
                     cv2.imwrite(os.path.join(self.result_dir, self.dataset, 'img', 'B2A_%07d.png' % step), B2A * 255.0)
                     self.genA2B.train(), self.genB2A.train(), self.disGA.train(), self.disGB.train(), self.disLA.train(), self.disLB.train()
@@ -532,6 +542,7 @@ class UGATIT(object) :
                                     
 
     def save(self, dir, step):
+        ensure_folder_exsit(dir)
         pa=os.path.join(dir, self.dataset + 'genA2B_'+str(step))
         fluid.save_dygraph(self.genA2B.state_dict(), pa)
         
@@ -700,6 +711,7 @@ class UGATIT(object) :
                 #return
             self.test_load()
             self.genA2B.eval(), self.genB2A.eval()
+            ensure_folder_exsit(os.path.join(self.result_dir, self.dataset, 'test'))
             for n, (real_A, _) in enumerate(self.testA_loader):
                 if n>6:
                     break

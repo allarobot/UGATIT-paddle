@@ -2,6 +2,11 @@ from scipy import misc
 import os, cv2
 import numpy as np
 
+def ensure_folder_exsit(folder):
+            # Check result directory
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
 def load_test_data(image_path, size=256):
     img = misc.imread(image_path, mode='RGB')
     img = misc.imresize(img, [size, size])

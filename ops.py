@@ -4,23 +4,6 @@ from paddle.fluid.dygraph import Conv2D,Linear, Pool2D, BatchNorm, PRelu, Spectr
 from paddle.fluid.dygraph import Sequential
 import paddle.fluid.dygraph.nn as nn
 
-# def _get_default_param_initializer():
-#     filter_elem_num = filter_size[0] * filter_size[
-#         1] * self._num_channels
-#     std = (2.0 / filter_elem_num)**0.5
-#     return Normal(0.0, std, 0)
-
-# self.weight = self.create_parameter(
-#     attr=self._param_attr,
-#     shape=filter_shape,
-#     dtype=self._dtype,
-#     default_initializer=_get_default_param_initializer())
-
-# self.bias = self.create_parameter(
-#     attr=self._bias_attr,
-#     shape=[self._num_filters],
-#     dtype=self._dtype,
-#     is_bias=True)
 
 def init_w():
     w_param_attrs = fluid.ParamAttr(
@@ -58,12 +41,6 @@ class MLP(fluid.dygraph.Layer):
                 # ops for  Gamma, Beta block
         self.light = light
         
-        # if self.light:
-        #     FC = [
-        #           Linear(in_nc, out_nc,param_attr=init_w(),bias_attr=init_bias(use_bias),act='relu'),
-        #           Linear(out_nc, out_nc,param_attr=init_w(),bias_attr=init_bias(use_bias),act='relu')
-        #           ]
-        # else:
         FC = [
                 Linear(in_nc, out_nc,param_attr=init_w(),bias_attr=init_bias(use_bias),act='relu'),
                 Linear(out_nc, out_nc,param_attr=init_w(),bias_attr=init_bias(use_bias), act='relu')
@@ -74,7 +51,6 @@ class MLP(fluid.dygraph.Layer):
         self.FC = Sequential(*FC)
   
     def forward(self,x):
-        #print("x shape: ",x.shape)
         # alpha, beta
         if self.light:
             # 1/3,shape(N,256,64,64) -->(N,256,1,1)
@@ -242,11 +218,6 @@ class BCEWithLogitsLoss():
 #         # self.weight_orig.set_value(weight)
 
 #     def forward(self, x):
-#         weight = self.layer._parameters['weight']
-#         print("orig weight.shape:",weight.shape)
-#         del self.layer._parameters['weight']
-#         weight_orig = self.create_parameter(weight.shape, dtype=weight.dtype)
-#         weight_orig.set_value(weight)
 #         weight = self.spectral_norm(weight_orig)
 #         print("spectrum new_weight.shape:",weight.shape)
 #         self.layer.weight = weight
@@ -275,9 +246,7 @@ class Spectralnorm(fluid.dygraph.Layer):
         weight = self.spectral_norm(self.weight_orig)
         self.layer.weight = weight
         out = self.layer(x)
-        #weight = layer._parameters['weight']
-        #del layer._parameters['weight']
-        # self.weight_orig = self.create_parameter(weight.shape, dtype=weight.dtype)
+
         ##update origi
         self.weight_orig.set_value(weight)
 
