@@ -117,8 +117,9 @@ class AdaILN(fluid.dygraph.Layer):
     def __init__(self, in_channels, eps=1e-5):
         super(AdaILN, self).__init__()
         self.eps = eps
-        self.rho =self.create_parameter((1, in_channels, 1, 1), dtype='float32', is_bias=True,
+        self.rho =self.create_parameter((1, in_channels, 1, 1), dtype='float32', is_bias=False,
         default_initializer=fluid.initializer.ConstantInitializer(0.9))
+        #self.clip = RhoClipper(0.0,1.0)
 
     def var(self, input, dim):
         mean = fluid.layers.reduce_mean(input, dim, keep_dim=True)
@@ -130,7 +131,9 @@ class AdaILN(fluid.dygraph.Layer):
         ln_mean, ln_var = fluid.layers.reduce_mean(input, dim=[1,2,3], keep_dim=True), self.var(input, dim=[1,2,3])
         out_in = (input - in_mean) / fluid.layers.sqrt(in_var + self.eps)
         out_ln = (input - ln_mean) / fluid.layers.sqrt(ln_var + self.eps)
-        out = self.rho * out_in + (1 - self.rho)*out_ln
+        #self.rho = (fluid.layers.clamp(self.rho,0.0, 1.0))
+        rho_=(fluid.layers.clamp(self.rho,0.0, 1.0))
+        out = rho_ * out_in + (1 - rho_)*out_ln
         out=out*fluid.layers.unsqueeze(gamma,[2,3])+fluid.layers.unsqueeze(beta,[2,3])
         return out
 
@@ -139,12 +142,13 @@ class LIN(fluid.dygraph.Layer):
     def __init__(self, in_channels, eps=1e-5):
         super(LIN, self).__init__()
         self.eps = eps
-        self.rho = self.create_parameter((1, in_channels, 1, 1), dtype='float32', is_bias=True,
-        default_initializer=fluid.initializer.ConstantInitializer(1.0))  # 0.0 -- LN, 1.0 --IN
-        self.gamma = self.create_parameter((1, in_channels, 1, 1), dtype='float32', is_bias=True,
+        self.rho = self.create_parameter((1, in_channels, 1, 1), dtype='float32', is_bias=False,
+        default_initializer=fluid.initializer.ConstantInitializer(0.0))  # 0.0 -- LN, 1.0 --IN
+        self.gamma = self.create_parameter((1, in_channels, 1, 1), dtype='float32', is_bias=False,
         default_initializer=fluid.initializer.ConstantInitializer(1.0))
-        self.beta = self.create_parameter((1, in_channels, 1, 1), dtype='float32', is_bias=True,
+        self.beta = self.create_parameter((1, in_channels, 1, 1), dtype='float32', is_bias=False,
         default_initializer=fluid.initializer.ConstantInitializer(0.0))
+        #self.clip = RhoClipper(0.0,1.0)
         
     def var(self, input, dim):
         mean = fluid.layers.reduce_mean(input, dim, keep_dim=True)
@@ -156,7 +160,8 @@ class LIN(fluid.dygraph.Layer):
         out_in = (input - in_mean) / fluid.layers.sqrt(in_var + self.eps)
         ln_mean, ln_var = fluid.layers.reduce_mean(input, dim=[1,2,3], keep_dim=True), self.var(input, dim=[1,2,3])
         out_ln = (input - ln_mean) / fluid.layers.sqrt(ln_var + self.eps)
-        out = self.rho * out_in + (1 - self.rho)*out_ln
+        rho_=(fluid.layers.clamp(self.rho,0.0, 1.0))
+        out = rho_ * out_in + (1 - rho_) * out_ln
         out = out * self.gamma + self.beta
         return out
 
@@ -180,9 +185,9 @@ class RhoClipper(object):
     def __call__(self, module):
 
         if hasattr(module, 'rho'):
-            w = module.rho.data
+            w = module.rho.weight
             w = w.clamp(self.clip_min, self.clip_max)
-            module.rho.data = w
+            module.rho.weight = w
 
 class BCEWithLogitsLoss():
     def __init__(self, weight=None, reduction='mean'):
