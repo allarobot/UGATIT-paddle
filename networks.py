@@ -163,7 +163,7 @@ class Discriminator(fluid.dygraph.Layer):
         super(Discriminator, self).__init__()
         encoder = [
                  ReflectionPad2d(1),
-                 Spectralnorm(Conv2D_(input_nc, ndf, filter_size=4, stride=2, padding=0)),
+                 Spectralnorm(Conv2D_(input_nc, ndf, filter_size=4, stride=2, padding=0),dim=1),
                  Leaky_ReLU()
                 ]        
 
@@ -171,23 +171,23 @@ class Discriminator(fluid.dygraph.Layer):
             mult = 2 ** (i - 1)
             encoder += [
                       ReflectionPad2d(1),
-                      Spectralnorm(Conv2D_(ndf * mult, ndf * mult * 2, filter_size=4, stride=2, padding=0)),
+                      Spectralnorm(Conv2D_(ndf * mult, ndf * mult * 2, filter_size=4, stride=2, padding=0),dim=1),
                       Leaky_ReLU()
                       ]        
         mult = 2**(n_layers-2-1)
         encoder += [
                     ReflectionPad2d(1),
-                    Spectralnorm(Conv2D_(ndf * mult, ndf * mult * 2, filter_size=4, stride=1, padding=0)),
+                    Spectralnorm(Conv2D_(ndf * mult, ndf * mult * 2, filter_size=4, stride=1, padding=0),dim=1),
                     Leaky_ReLU()
                     ] 
         # Class Activation Map
         mult = 2 ** (n_layers - 2)
-        self.gap_fc = Spectralnorm(Linear_(ndf * mult, 1))
-        self.gmp_fc = Spectralnorm(Linear_(ndf * mult, 1))
+        self.gap_fc = Spectralnorm(Linear_(ndf * mult, 1),dim=0)
+        self.gmp_fc = Spectralnorm(Linear_(ndf * mult, 1),dim=0)
         self.conv1x1 = Conv2D_(ndf * mult * 2, ndf * mult, filter_size=1, stride=1)
 
         self.pad = ReflectionPad2d(1)
-        self.conv = Spectralnorm(Conv2D_(ndf * mult, 1, filter_size=4, stride=1, padding=0))   
+        self.conv = Spectralnorm(Conv2D_(ndf * mult, 1, filter_size=4, stride=1, padding=0),dim=1)  
 
         self.encoder = Sequential(*encoder)
 
