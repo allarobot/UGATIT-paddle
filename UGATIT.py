@@ -633,7 +633,7 @@ class UGATIT(object) :
                 #print(" [*] Load FAILURE")
                 #return
 
-            self.test_load(self.iteration)
+            self.test_load(step=self.iteration)
             self.genA2B.eval(), self.genB2A.eval()
             ensure_folder_exsit(os.path.join(self.result_dir, self.dataset, 'test'))
             for n, (real_A, _) in enumerate(self.testA_loader):
@@ -688,23 +688,14 @@ class UGATIT(object) :
             self.genA2B = ResnetGenerator(input_nc=3, output_nc=3, ngf=self.ch, n_blocks=self.n_res, img_size=self.img_size, light=self.light)
             self.genB2A = ResnetGenerator(input_nc=3, output_nc=3, ngf=self.ch, n_blocks=self.n_res, img_size=self.img_size, light=self.light)
 
-            self.test_load(self.iteration)
+            self.test_load(step=self.iteration)
             self.genA2B.eval(), self.genB2A.eval()
             ensure_folder_exsit(os.path.join(self.result_dir, self.dataset, 'test'))
             for n, (real_A, _) in enumerate(self.testA_loader):
-                # if n>6:
-                #     break
-                print(real_A[0])
-                print(np.max(real_A[0]),np.min(real_A[0]))
-                cv2.imwrite("image_{}.png".format(n),RGB2BGR(tensor2numpy(denorm(real_A[0]))))
+
                 real_A = fluid.dygraph.to_variable(real_A)
     
                 fake_A2B, _, fake_A2B_heatmap = self.genA2B(real_A)
     
-                fake_A2B2A, _, fake_A2B2A_heatmap = self.genB2A(fake_A2B)
-    
-                fake_A2A, _, fake_A2A_heatmap = self.genB2A(real_A)
-                print("fake_A2B: ",fake_A2B[0])
-                print(np.max(fake_A2B[0]),np.min(fake_A2B[0]))
                 A2B = RGB2BGR(tensor2numpy(denorm(fake_A2B[0])))
                 cv2.imwrite(os.path.join(self.result_dir, self.dataset, 'test', 'A2B_%d.png' % (n + 1)), A2B * 255.0)
