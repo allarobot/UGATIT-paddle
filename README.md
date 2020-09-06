@@ -4,6 +4,21 @@
 <div align="center">
   <img src="./assets/teaser.png">
 </div>
+
+## Pre-requisites
+1. python >3.6
+1. paddle 1.83
+2. paddlex
+3. selfie2anime dataset
+
+## Installation
+1. download dataset and place it in <b>dataset</b> directory.
+2. download & install python from [python.org](https://www.python.org/)
+3. install packages
+   ```
+   > pip install -r requirements.txt
+   ```
+
 ## Usage
 
 ```
