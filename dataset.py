@@ -53,7 +53,8 @@ class DatasetFolder(Dataset):
         path, target = self.samples[index]
         sample = self.loader(path)
         sample = np.asarray(sample).astype('float32')
-        sample = sample / 255.0
+        #sample = sample / 255.0 
+        sample = sample / 127.5 -1.0   #to replace paddlex.cls.normalize
         # print("sample: ",sample)
         # print(sample.shape,np.max(sample),np.min(sample))
         if self.transform is not None:
