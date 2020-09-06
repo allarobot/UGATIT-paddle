@@ -54,14 +54,17 @@ class DatasetFolder(Dataset):
         sample = self.loader(path)
         sample = np.asarray(sample).astype('float32')
         sample = sample / 255.0
+        # print("sample: ",sample)
+        # print(sample.shape,np.max(sample),np.min(sample))
         if self.transform is not None:
             # print("shape of sample: ",sample.shape)
             sample = self.transform(sample)[0]
-            # print("shape of sample after transform: ",sample.shape)
             sample = sample.transpose((2, 0, 1))
         if self.target_transform is not None:
             target = self.target_transform(target)[0]
             target=target.transpose((2, 0, 1))
+        # print("sample after trans: ",sample)
+        # print(sample.shape,np.max(sample),np.min(sample))
 
         return sample, target
 

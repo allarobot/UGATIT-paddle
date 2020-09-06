@@ -62,7 +62,7 @@ def imagenet_norm(x):
     return (x - mean) / std
 
 def denorm(x):
-    return x * 0.5 + 0.5
+    return x #* 0.5 + 0.5
 
 def tensor2numpy(x):
     return x.numpy().transpose(1,2,0)

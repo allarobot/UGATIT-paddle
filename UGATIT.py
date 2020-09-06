@@ -22,6 +22,7 @@ class UGATIT(object) :
         self.log_path = f'{self.result_dir}/log.txt'
         self.dataset = args.dataset
 
+        self.start_iteration = args.start_iteration
         self.iteration = args.iteration
         self.decay_flag = args.decay_flag
 
@@ -96,11 +97,13 @@ class UGATIT(object) :
             transforms.RandomHorizontalFlip(),
             transforms.ResizeByShort(short_size=self.img_size + 30, max_size=-1),
             transforms.RandomCrop(self.img_size),
-            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+            #transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+            #transforms.Normalize()
         ])
         test_transform = transforms.Compose([
             transforms.ResizeByShort(short_size=self.img_size, max_size=-1),
-            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+            #transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+            #transforms.Normalize()
         ])
 
         self.trainA = ImageFolder(os.path.join('dataset', self.dataset, 'trainA'), tranform=train_transform)
@@ -161,7 +164,6 @@ class UGATIT(object) :
             self.disGB = Discriminator(input_nc=3, ndf=self.ch, n_layers=7)
             self.disLA = Discriminator(input_nc=3, ndf=self.ch, n_layers=5)
             self.disLB = Discriminator(input_nc=3, ndf=self.ch, n_layers=5)
-            self.genA2B.train(), self.genB2A.train(), self.disGA.train(), self.disGB.train(), self.disLA.train(), self.disLB.train()
             """ Define Loss """
             #self.L1_loss = nn.L1Loss().to(self.device)
             #self.MSE_loss = nn.MSELoss().to(self.device)
@@ -180,10 +182,10 @@ class UGATIT(object) :
             self.G_optim  = fluid.optimizer.Adam(learning_rate=self.lr, beta1=0.5, beta2=0.999, parameter_list=self.genA2B.parameters()+self.genB2A.parameters(),regularization=fluid.regularizer.L2Decay(regularization_coeff=self.weight_decay))
             
             self.D_optim  = fluid.optimizer.Adam(learning_rate=self.lr, beta1=0.5, beta2=0.999,  parameter_list=self.disGA.parameters()+self.disGB.parameters()+self.disLA.parameters()+self.disLB.parameters(),regularization=fluid.regularizer.L2Decay(regularization_coeff=self.weight_decay))    
-            start_iter = 4391
+            start_iter = self.start_iteration
             if self.resume:
                 print('load model!!!')
-                self.sload()
+                self.load(os.path.join(self.result_dir, self.dataset, 'model'), start_iter)
                 # model_list = glob(os.path.join(self.result_dir, self.dataset, 'model', '*.pt'))
                 # if not len(model_list) == 0:
                 #     model_list.sort()
@@ -193,15 +195,17 @@ class UGATIT(object) :
                 #     # if self.decay_flag and start_iter > (self.iteration // 2):
                 #     #     self.G_optim.param_groups[0]['lr'] -= (self.lr / (self.iteration // 2)) * (start_iter - self.iteration // 2)
                 #     #     self.D_optim.param_groups[0]['lr'] -= (self.lr / (self.iteration // 2)) * (start_iter - self.iteration // 2)
-        
+            self.genA2B.train(), self.genB2A.train(), self.disGA.train(), self.disGB.train(), self.disLA.train(), self.disLB.train()
             # training loop
             print('training start !')
             start_time = time.time()
             for step in range(start_iter, self.iteration + 1):
                 if self.decay_flag and step > (self.iteration // 2):
-                    self.G_optim.param_and_grad[0]['learning_rate'] -= (self.lr / (self.iteration // 2))
-                    self.D_optim.param_and_grad[0]['learning_rate'] -= (self.lr / (self.iteration // 2))
-        
+                    pass
+                    # self.G_optim.param_and_grad[0]['learning_rate'] -= (self.lr / (self.iteration // 2))
+                    # self.D_optim.param_and_grad[0]['learning_rate'] -= (self.lr / (self.iteration // 2))
+                    #np.allclose(self.G_optim.current_step_lr(), self.lr- (self.lr / (self.iteration // 2), rtol=1e-06, atol=0.0) #
+                    #np.allclose(self.D_optim.current_step_lr(), self.lr- (self.lr / (self.iteration // 2), rtol=1e-06, atol=0.0) #
                 try:
                     #real_A, _ = trainA_iter.next()
                     real_A, _ = next(trainA_iter)
@@ -391,7 +395,6 @@ class UGATIT(object) :
                 # clip_rho(self.genA2B)
                 # clip_rho(self.genB2A)
 
-
                 message = "[%5d/%5d] time: %4.4f d_loss: %.8f, g_loss: %.8f" % (step, self.iteration, time.time() - start_time, Discriminator_loss, Generator_loss)
                 self.log(message)
 
@@ -491,136 +494,92 @@ class UGATIT(object) :
                 if step % self.save_freq == 0:
                     self.save(os.path.join(self.result_dir, self.dataset, 'model'), step)
         
-                if step % 5000 == 0:
-                    pa=os.path.join(self.result_dir, self.dataset ,'genA2B_'+str(step))
-                    fluid.save_dygraph(self.genA2B.state_dict(), pa)
-                    pb=os.path.join(self.result_dir, self.dataset , 'genB2A_'+str(step))
-                    fluid.save_dygraph(self.genB2A.state_dict(), pb)
-                    pc=os.path.join(self.result_dir, self.dataset ,'genA2B_'+str(step))
-                    fluid.save_dygraph(self.G_optim.state_dict(),pc)
-                    pd=os.path.join(self.result_dir, self.dataset , 'disGA_'+str(step))
-                    fluid.save_dygraph(self.disGA.state_dict(), pd)
-                    pe=os.path.join(self.result_dir, self.dataset , 'disGB_'+str(step))
-                    fluid.save_dygraph(self.disGB.state_dict(), pe)
-                    pf=os.path.join(self.result_dir, self.dataset , 'disLA_'+str(step))
-                    fluid.save_dygraph(self.disLA.state_dict(), pf)   
-                    pg=os.path.join(self.result_dir, self.dataset , 'disLB_'+str(step))
-                    fluid.save_dygraph(self.disLB.state_dict(), pg)
-                    ph=os.path.join(self.result_dir, self.dataset , 'genB2A_'+str(step))
-                    fluid.save_dygraph(self.D_optim.state_dict(), ph)                      
+                # if step % 5000 == 0:
+                #     pa=os.path.join(self.result_dir, self.dataset ,'genA2B_'+str(step))
+                #     fluid.save_dygraph(self.genA2B.state_dict(), pa)
+                #     pb=os.path.join(self.result_dir, self.dataset , 'genB2A_'+str(step))
+                #     fluid.save_dygraph(self.genB2A.state_dict(), pb)
+                #     pc=os.path.join(self.result_dir, self.dataset ,'genA2B_'+str(step))
+                #     fluid.save_dygraph(self.G_optim.state_dict(),pc)
+                #     pd=os.path.join(self.result_dir, self.dataset , 'disGA_'+str(step))
+                #     fluid.save_dygraph(self.disGA.state_dict(), pd)
+                #     pe=os.path.join(self.result_dir, self.dataset , 'disGB_'+str(step))
+                #     fluid.save_dygraph(self.disGB.state_dict(), pe)
+                #     pf=os.path.join(self.result_dir, self.dataset , 'disLA_'+str(step))
+                #     fluid.save_dygraph(self.disLA.state_dict(), pf)   
+                #     pg=os.path.join(self.result_dir, self.dataset , 'disLB_'+str(step))
+                #     fluid.save_dygraph(self.disLB.state_dict(), pg)
+                #     ph=os.path.join(self.result_dir, self.dataset , 'genB2A_'+str(step))
+                #     fluid.save_dygraph(self.D_optim.state_dict(), ph)                      
                                     
-
     def save(self, dir, step):
         ensure_folder_exsit(dir)
-        pa=os.path.join(dir, self.dataset + 'genA2B_'+str(step))
+        pa=os.path.join(dir, 'genA2B_'+str(step))
         fluid.save_dygraph(self.genA2B.state_dict(), pa)
         
-        pb=os.path.join(dir, self.dataset + 'genB2A_'+str(step))
+        pb=os.path.join(dir, 'genB2A_'+str(step))
         fluid.save_dygraph(self.genB2A.state_dict(), pb)
         
-        pc=os.path.join(dir, self.dataset + 'genA2B_'+str(step))
-        fluid.save_dygraph(self.G_optim.state_dict(), pc)
+        # pc=os.path.join(dir, 'genA2B_'+str(step))
+        # fluid.save_dygraph(self.G_optim.state_dict(), pc)
         
-        pd=os.path.join(dir, self.dataset + 'disGA_'+str(step))
+        pd=os.path.join(dir,  'disGA_'+str(step))
         fluid.save_dygraph(self.disGA.state_dict(),pd)
         
-        pe=os.path.join(dir, self.dataset + 'disGB_'+str(step))
+        pe=os.path.join(dir,  'disGB_'+str(step))
         fluid.save_dygraph(self.disGB.state_dict(), pe)
         
-        pf=os.path.join(dir, self.dataset + 'disLA_'+str(step))
+        pf=os.path.join(dir, 'disLA_'+str(step))
         fluid.save_dygraph(self.disLA.state_dict(), pf)   
         
-        pg=os.path.join(dir, self.dataset + 'disLB_'+str(step))
+        pg=os.path.join(dir, 'disLB_'+str(step))
         fluid.save_dygraph(self.disLB.state_dict(), pg)
         
-        ph=os.path.join(dir, self.dataset + 'genB2A_'+str(step))
-        fluid.save_dygraph(self.D_optim.state_dict(), ph)          
+        # ph=os.path.join(dir, 'genB2A_'+str(step))
+        # fluid.save_dygraph(self.D_optim.state_dict(), ph)          
 
-    def sload(self):
-        pa='results/selfie2anime/smodel/genA2B_30000.pdparams'
-        a,c=fluid.load_dygraph(pa)
-        
-        pb='results/selfie2anime/smodel/genB2A_30000.pdparams'
-        b,h=fluid.load_dygraph(pb)
-        
-        # pc='results/selfie2anime/smodel/G_optim_30000.pdopt'
-        # _,c=fluid.load_dygraph(pc)
-        
-        pd='results/selfie2anime/smodel/disGA_30000.pdparams'
-        d,_=fluid.load_dygraph(pd)
-        
-        pe='results/selfie2anime/smodel/disGB_30000.pdparams'
-        e,_=fluid.load_dygraph(pe)
-        
-        pf='results/selfie2anime/smodel/disLA_30000.pdparams'
-        f,_=fluid.load_dygraph(pf)   
-        
-        pg='results/selfie2anime/smodel/disLB_30000.pdparams'
-        g,_=fluid.load_dygraph(pg)
-        
-        # ph='results/selfie2anime/smodel/D_optim_30000.pdopt'
-        # _,h=fluid.load_dygraph(ph)  
-        self.genA2B.load_dict(a)
-        self.genB2A.load_dict(b)
-        self.G_optim.set_dict(c)
-        self.disGA.load_dict(d)
-        self.disGB.load_dict(e)
-        self.disLA.load_dict(f)
-        self.disLB.load_dict(g)        
-        self.D_optim.set_dict(h)        
-        #params = fluid.load(os.path.join(dir, self.dataset + '_params_%07d.pt' % step))
-        #self.genA2B.load_state_dict(params['genA2B'])
-        #self.genB2A.load_state_dict(params['genB2A'])
-        #self.disGA.load_state_dict(params['disGA'])
-        #self.disGB.load_state_dict(params['disGB'])
-        #self.disLA.load_state_dict(params['disLA'])
-        #self.disLB.load_state_dict(params['disLB'])
 
     def load(self, dir, step):
-        pa=os.path.join(dir, self.dataset + 'genA2B_'+str(step))
+        pa=os.path.join(dir, 'genA2B_'+str(step))
         a,c=fluid.load_dygraph(pa)
         
-        pb=os.path.join(dir, self.dataset + 'genB2A_'+str(step))
+        pb=os.path.join(dir, 'genB2A_'+str(step))
         b,h=fluid.load_dygraph(pb)
         
         # pc=os.path.join(dir, self.dataset + 'G_optim_'+str(step))
         # _,c=fluid.load_dygraph(pc)
         
-        pd=os.path.join(dir, self.dataset + 'disGA_'+str(step))
+        pd=os.path.join(dir, 'disGA_'+str(step))
         d,_=fluid.load_dygraph(pd)
         
-        pe=os.path.join(dir, self.dataset + 'disGB_'+str(step))
+        pe=os.path.join(dir, 'disGB_'+str(step))
         e,_=fluid.load_dygraph(pe)
         
-        pf=os.path.join(dir, self.dataset + 'disLA_'+str(step))
+        pf=os.path.join(dir, 'disLA_'+str(step))
         f,_=fluid.load_dygraph(pf)   
         
-        pg=os.path.join(dir, self.dataset + 'disLB_'+str(step))
+        pg=os.path.join(dir, 'disLB_'+str(step))
         g,_=fluid.load_dygraph(pg)
         
         # ph=os.path.join(dir, self.dataset + 'D_optim_'+str(step))
         # _,h=fluid.load_dygraph(ph)  
         self.genA2B.load_dict(a)
         self.genB2A.load_dict(b)
-        self.G_optim.set_dict(c)
+        #self.G_optim.set_dict(c)
         self.disGA.load_dict(d)
         self.disGB.load_dict(e)
         self.disLA.load_dict(f)
         self.disLB.load_dict(g)        
-        self.D_optim.set_dict(h)        
-        #params = fluid.load(os.path.join(dir, self.dataset + '_params_%07d.pt' % step))
-        #self.genA2B.load_state_dict(params['genA2B'])
-        #self.genB2A.load_state_dict(params['genB2A'])
-        #self.disGA.load_state_dict(params['disGA'])
-        #self.disGB.load_state_dict(params['disGB'])
-        #self.disLA.load_state_dict(params['disLA'])
-        #self.disLB.load_state_dict(params['disLB'])
+        #self.D_optim.set_dict(h)        
 
-    def test_load(self):
-        pa='results\\selfie2anime\\model\\genA2B_20000.pdparams'
+
+    def test_load(self,dir='results/selfie2anime/model/',step=100):
+        #pa='results/selfie2anime/model/genA2B_5000.pdparams'
+        pa='results/selfie2anime/model/genA2B_{}.pdparams'.format(step)
         a,_=fluid.load_dygraph(pa)
         
-        pb='results\\selfie2anime\\model\\genB2A_20000.pdparams'
+        #pb='results/selfie2anime/model/genB2A_5000.pdparams'
+        pb='results/selfie2anime/model/genB2A_{}.pdparams'.format(step)
         b,_=fluid.load_dygraph(pb)
         
         #pc=os.path.join(dir, self.dataset + 'G_optim_'+str(step))
@@ -647,8 +606,9 @@ class UGATIT(object) :
         #self.disGB.load_dict(e)
         #self.disLA.load_dict(f)
         #self.disLB.load_dict(g)        
-        #self.D_optim.set_dict(h)  
-    def test(self):
+        #self.D_optim.set_dict(h) 
+
+    def eval(self):
         place = fluid.CUDAPlace(0) if self.device=='cuda' else fluid.CPUPlace()
         with fluid.dygraph.guard(place):
             
@@ -672,7 +632,8 @@ class UGATIT(object) :
             #else:
                 #print(" [*] Load FAILURE")
                 #return
-            self.test_load()
+
+            self.test_load(self.iteration)
             self.genA2B.eval(), self.genB2A.eval()
             ensure_folder_exsit(os.path.join(self.result_dir, self.dataset, 'test'))
             for n, (real_A, _) in enumerate(self.testA_loader):
@@ -718,3 +679,32 @@ class UGATIT(object) :
                 cv2.imwrite(os.path.join(self.result_dir, self.dataset, 'test', 'B2A_%d.png' % (n + 1)), B2A * 255.0)
 
             cv2.imwrite(os.path.join(self.result_dir, self.dataset, 'test', 'B2A_%d.png' % (n + 1)), B2A * 255.0)
+
+    def test(self):
+        place = fluid.CUDAPlace(0) if self.device=='cuda' else fluid.CPUPlace()
+        with fluid.dygraph.guard(place):
+            
+            """ Define Generator, Discriminator """
+            self.genA2B = ResnetGenerator(input_nc=3, output_nc=3, ngf=self.ch, n_blocks=self.n_res, img_size=self.img_size, light=self.light)
+            self.genB2A = ResnetGenerator(input_nc=3, output_nc=3, ngf=self.ch, n_blocks=self.n_res, img_size=self.img_size, light=self.light)
+
+            self.test_load(self.iteration)
+            self.genA2B.eval(), self.genB2A.eval()
+            ensure_folder_exsit(os.path.join(self.result_dir, self.dataset, 'test'))
+            for n, (real_A, _) in enumerate(self.testA_loader):
+                # if n>6:
+                #     break
+                print(real_A[0])
+                print(np.max(real_A[0]),np.min(real_A[0]))
+                cv2.imwrite("image_{}.png".format(n),RGB2BGR(tensor2numpy(denorm(real_A[0]))))
+                real_A = fluid.dygraph.to_variable(real_A)
+    
+                fake_A2B, _, fake_A2B_heatmap = self.genA2B(real_A)
+    
+                fake_A2B2A, _, fake_A2B2A_heatmap = self.genB2A(fake_A2B)
+    
+                fake_A2A, _, fake_A2A_heatmap = self.genB2A(real_A)
+                print("fake_A2B: ",fake_A2B[0])
+                print(np.max(fake_A2B[0]),np.min(fake_A2B[0]))
+                A2B = RGB2BGR(tensor2numpy(denorm(fake_A2B[0])))
+                cv2.imwrite(os.path.join(self.result_dir, self.dataset, 'test', 'A2B_%d.png' % (n + 1)), A2B * 255.0)

@@ -123,20 +123,6 @@ class ResnetGenerator(fluid.dygraph.Layer):
         # Ouput_3
         heatmap = fluid.layers.reduce_sum(x, dim=1, keep_dim=True)  ## Attention map, #heatmap torch.Size([1, 1, 64, 64])
 
-        # # alpha, beta
-        # if self.light:
-        #     # 1/3,shape(N,256,64,64) -->(N,256,1,1)
-        #     x_ = fluid.layers.adaptive_pool2d(x, 1,pool_type='avg') # shape=(N,256,1,1)
-        #     x_ = fluid.layers.reshape(x_, shape=[x.shape[0], -1]) # shape=(N,256)  
-        #     # 2/3~3/3, x2 (N,256)-->(N,256) by FC256
-        #     x_ = self.FC(x_)
-        # else:
-        #     # 1/3 (N,256,64,64)-->(N,256*64*64)
-        #     x_ = fluid.layers.reshape(x, shape=[x.shape[0], -1]) # shape=(N,256*64*64)
-        #     # 2/3 (N,64*64*256)-->(N,256), 2/3 (N,256)-->(N,256) by FC
-        #     x_ = self.FC(x_)
-        # #(N,256)-->(N,256), parameters for AdaILN
-        # gamma, beta = self.gamma(x_), self.beta(x_) # gamma torch.Size([N, 256]) beta torch.Size([N, 256])
 
         gamma,beta = self.mlp(x)
 
