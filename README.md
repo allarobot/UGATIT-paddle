@@ -102,6 +102,21 @@ KID_mean :  20.327456295490265
 KID_stddev :  0.6430250126868486
 ```
 
+### Results at Iteration 45000
+
+inception score(IS):
+```
+IS :  (2.3515599, 0.36347368)
+```
+frechet inception distance(FID):
+```
+FID :  1.8905712890625
+```
+kernel inception distance(KID):
+```
+KID_mean :  12.239761650562286
+KID_stddev :  0.7167758420109749
+```
 ### [Paper](https://arxiv.org/abs/1907.10830) | [Official Tensorflow code](https://github.com/taki0112/UGATIT)
 The results of the paper came from the **Tensorflow code**
 
