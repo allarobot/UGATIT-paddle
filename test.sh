@@ -1,3 +1,3 @@
 #!/bin/bash
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64;
-python main.py --phase test --light True --iteration 31000;
+python main.py --phase test --light True --iteration 45000;
