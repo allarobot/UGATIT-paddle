@@ -54,14 +54,14 @@
 ```
 ### Test A2B
 ```
-> python main.py --dataset selfie2anime --phase test
+> python main.py --dataset selfie2anime --phase test --iteration <iteration num of checkpoint>
 ```
 ### Train from a specific checkpoint<num1>
 ```
 > python main.py --dataset selfie2anime --phase train --resume True --start_iteration <num1> --iteration <num2>
 ```
 
-### Metric Result KID
+### Metric calculation
 we want to compare with official performance, so the same evaluation tool should be used.
 It is a tensorflow-based script which will extract features from source images, target images and fake A2B images for final result. we need to organize folder in following format, and then run main.py
 ```
@@ -86,7 +86,21 @@ It is a tensorflow-based script which will extract features from source images, 
        ├── main.py
        └── ...
 ```
+### Results at Iteration 10000
 
+inception score(IS):
+```
+(2.250684, 0.29942062)
+```
+frechet inception distance(FID):
+```
+2.407209625244141
+```
+kernel inception distance(KID):
+```
+KID_mean :  20.327456295490265
+KID_stddev :  0.6430250126868486
+```
 
 ### [Paper](https://arxiv.org/abs/1907.10830) | [Official Tensorflow code](https://github.com/taki0112/UGATIT)
 The results of the paper came from the **Tensorflow code**
